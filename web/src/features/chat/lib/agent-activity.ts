@@ -178,14 +178,21 @@ function boundedText(value: unknown, maximum: number): string | null {
   let text: string | null = null;
   if (typeof value === "string") text = value.trim() || null;
   else if (value !== undefined && value !== null) {
+    if (Array.isArray(value) && value.length === 0) return null;
+    if (isRecord(value) && Object.keys(value).length === 0) return null;
     try {
       text = JSON.stringify(value);
     } catch {
       text = null;
     }
   }
-  if (!text) return null;
+  if (!text || text === "{}" || text === "[]") return null;
   return text.length > maximum ? `${text.slice(0, maximum)}…` : text;
+}
+
+function compactSummary(presentation: ObserverFramePresentation): string | null {
+  if (presentation.detail) return presentation.detail;
+  return presentation.state === "tool" ? presentation.title : null;
 }
 
 /** Map wire kinds to non-sensitive lifecycle categories only. */
@@ -436,7 +443,7 @@ export class AgentActivityStore {
         agentPubkey,
         state,
         detail: state === "quiet" ? "silent" : "fresh",
-        summary: presentation.detail ?? presentation.title,
+        summary: compactSummary(presentation),
         lastUpdatedAt: record.receivedAt,
       });
     }

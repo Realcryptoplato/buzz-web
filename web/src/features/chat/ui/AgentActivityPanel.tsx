@@ -1,4 +1,4 @@
-import { Braces, ChevronDown, ChevronRight, TerminalSquare, X } from "lucide-react";
+import { Braces, ListTree, TerminalSquare, X } from "lucide-react";
 import { useState } from "react";
 import type {
   ActivityState,
@@ -49,7 +49,7 @@ export function AgentActivityPanel({
   onClose: () => void;
   onResize: (width: number) => void;
 }) {
-  const [expandedJson, setExpandedJson] = useState<Set<string>>(() => new Set());
+  const [viewMode, setViewMode] = useState<"activity" | "json">("activity");
   const newestFirst = [...items].reverse();
 
   return (
@@ -65,7 +65,7 @@ export function AgentActivityPanel({
         panelWidth={panelWidth}
         onResize={onResize}
       />
-      <header className="flex h-11 shrink-0 items-center justify-between border-b px-3">
+      <header className="flex min-h-11 shrink-0 items-center justify-between gap-2 border-b px-3 py-1.5">
         <div className="min-w-0">
           <h2 className="truncate text-[13px] font-semibold">{t("activity.panelTitle")}</h2>
           <p className="text-[10px] text-muted-foreground">
@@ -74,15 +74,40 @@ export function AgentActivityPanel({
               : t("activity.recent")}
           </p>
         </div>
-        <button
-          aria-label={t("activity.close")}
-          className="buzz-icon-button h-7 w-7 flex-none"
-          title={t("activity.close")}
-          type="button"
-          onClick={onClose}
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <fieldset
+            aria-label={t("activity.viewMode")}
+            className="inline-flex rounded-md border bg-foreground/[0.025] p-0.5"
+          >
+            <button
+              aria-pressed={viewMode === "activity"}
+              className={`inline-flex items-center gap-1 rounded px-1.5 py-1 text-[10px] font-medium ${viewMode === "activity" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
+              type="button"
+              onClick={() => setViewMode("activity")}
+            >
+              <ListTree className="h-3 w-3" aria-hidden="true" />
+              {t("activity.compact")}
+            </button>
+            <button
+              aria-pressed={viewMode === "json"}
+              className={`inline-flex items-center gap-1 rounded px-1.5 py-1 text-[10px] font-medium ${viewMode === "json" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
+              type="button"
+              onClick={() => setViewMode("json")}
+            >
+              <Braces className="h-3 w-3" aria-hidden="true" />
+              {t("activity.rawJson")}
+            </button>
+          </fieldset>
+          <button
+            aria-label={t("activity.close")}
+            className="buzz-icon-button h-7 w-7 flex-none"
+            title={t("activity.close")}
+            type="button"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </header>
 
       <div className="buzz-scrollbar min-h-0 flex-1 overflow-y-auto p-3">
@@ -90,7 +115,6 @@ export function AgentActivityPanel({
           <ol className="space-y-2">
             {newestFirst.map((item) => {
               const profile = profiles[item.agentPubkey];
-              const expanded = expandedJson.has(item.id);
               return (
                 <li className="rounded-md border bg-foreground/[0.025] p-2.5" key={item.id}>
                   <div className="flex min-w-0 items-start gap-2">
@@ -111,48 +135,29 @@ export function AgentActivityPanel({
                     </div>
                   </div>
 
-                  {item.presentation.detail ? (
-                    <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-foreground/5 p-2 font-mono text-[10px] leading-4 text-foreground/85">
-                      {item.presentation.detail}
-                    </pre>
-                  ) : null}
-                  {item.presentation.output ? (
-                    <div className="mt-2">
-                      <p className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {t("activity.output")}
-                      </p>
-                      <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-foreground/5 p-2 font-mono text-[10px] leading-4 text-foreground/75">
-                        {item.presentation.output}
-                      </pre>
-                    </div>
-                  ) : null}
-
-                  <button
-                    aria-expanded={expanded}
-                    className="mt-2 inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
-                    type="button"
-                    onClick={() =>
-                      setExpandedJson((current) => {
-                        const next = new Set(current);
-                        if (next.has(item.id)) next.delete(item.id);
-                        else next.add(item.id);
-                        return next;
-                      })
-                    }
-                  >
-                    {expanded ? (
-                      <ChevronDown className="h-3 w-3" />
-                    ) : (
-                      <ChevronRight className="h-3 w-3" />
-                    )}
-                    <Braces className="h-3 w-3" />
-                    {expanded ? t("activity.hideJson") : t("activity.showJson")}
-                  </button>
-                  {expanded ? (
+                  {viewMode === "json" ? (
                     <pre className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap break-all rounded bg-foreground/5 p-2 font-mono text-[9px] leading-4 text-foreground/75">
                       {frameJson(item)}
                     </pre>
-                  ) : null}
+                  ) : (
+                    <>
+                      {item.presentation.detail ? (
+                        <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-foreground/5 p-2 font-mono text-[10px] leading-4 text-foreground/85">
+                          {item.presentation.detail}
+                        </pre>
+                      ) : null}
+                      {item.presentation.output ? (
+                        <div className="mt-2">
+                          <p className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {t("activity.output")}
+                          </p>
+                          <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-foreground/5 p-2 font-mono text-[10px] leading-4 text-foreground/75">
+                            {item.presentation.output}
+                          </pre>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
                 </li>
               );
             })}

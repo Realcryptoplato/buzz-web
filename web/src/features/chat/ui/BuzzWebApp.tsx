@@ -412,6 +412,10 @@ function Workspace({
     : "Buzz";
   const searchChannel = state.channels.find((channel) => channel.id === searchChannelId) ?? null;
   const typingNames = state.typingPubkeys
+    .filter(
+      (typingPubkey) =>
+        !liveAgentActivity.available || !channelAgentPubkeys.includes(typingPubkey.toLowerCase()),
+    )
     .map((typingPubkey) => state.profiles[typingPubkey]?.name)
     .filter((name): name is string => Boolean(name));
 

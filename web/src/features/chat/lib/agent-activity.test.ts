@@ -194,6 +194,15 @@ describe("live agent activity protocol", () => {
     });
   });
 
+  it("does not render empty lifecycle payloads as bracket noise", () => {
+    const emptyFrame = requiredFrame({ kind: "turn_liveness", payload: {} });
+    expect(describeObserverFrame(emptyFrame).detail).toBeNull();
+
+    const store = new AgentActivityStore();
+    store.ingest(AGENT, emptyFrame, 1_000);
+    expect(store.getStatuses(CHANNEL, [AGENT], "connected", true, 1_100)[0]?.summary).toBeNull();
+  });
+
   it("routes unscoped frames only through a trusted turn or session channel correlation", () => {
     const store = new AgentActivityStore();
     store.ingest(AGENT, requiredFrame({ seq: 1, channelId: CHANNEL }), 1_000);

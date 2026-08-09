@@ -22,9 +22,9 @@ describe("resolveLocale", () => {
   it("localizes the agent activity panel in English and Chinese", () => {
     vi.stubGlobal("navigator", { language: "en-US", languages: ["en-US"] });
     expect(t("activity.panelTitle")).toBe("Agent activity");
-    expect(t("activity.showJson")).toBe("Show JSON");
+    expect(t("activity.rawJson")).toBe("JSON");
     vi.stubGlobal("navigator", { language: "zh-CN", languages: ["zh-CN"] });
     expect(t("activity.panelTitle")).toBe("Agent 活动");
-    expect(t("activity.showJson")).toBe("显示 JSON");
+    expect(t("activity.compact")).toBe("活动");
   });
 });

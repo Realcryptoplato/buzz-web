@@ -60,7 +60,7 @@ describe("agent activity UI", () => {
     expect(html).toContain("View activity");
   });
 
-  it("shows command output and offers JSON inspection in the activity panel", () => {
+  it("shows command output with one panel-level Activity and JSON switch", () => {
     const store = activityStore();
     const items = store.getItems(CHANNEL, [AGENT]);
     const statuses = store.getStatuses(CHANNEL, [AGENT], "connected", true, 1_100);
@@ -79,6 +79,9 @@ describe("agent activity UI", () => {
 
     expect(html).toContain("npm test");
     expect(html).toContain("86 tests passed");
-    expect(html).toContain("Show JSON");
+    expect(html).toContain("Activity view");
+    expect(html).toContain("Activity");
+    expect(html).toContain("JSON");
+    expect(html).not.toContain("Show JSON");
   });
 });
