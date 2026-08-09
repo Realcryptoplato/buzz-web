@@ -8,11 +8,14 @@ import { channelDisplayName, threadReference } from "@/features/chat/lib/chat-mo
 import type { BuzzChannel, TimelineMessage } from "@/features/chat/lib/chat-types";
 import { conversationDraftKey } from "@/features/chat/lib/conversation-drafts";
 import { useBuzzSession } from "@/features/chat/lib/use-buzz-session";
+import { useLiveAgentActivity } from "@/features/chat/lib/use-live-agent-activity";
 import { useRelayUserState } from "@/features/chat/lib/use-relay-user-state";
 import {
   isEditableShortcutTarget,
   resolveWorkspaceShortcut,
 } from "@/features/chat/lib/workspace-shortcuts";
+import { AgentActivityIndicator } from "@/features/chat/ui/AgentActivityIndicator";
+import { AgentActivityPanel } from "@/features/chat/ui/AgentActivityPanel";
 import { SearchDialog } from "@/features/chat/ui/AppDialogs";
 import { AppNavigation } from "@/features/chat/ui/AppNavigation";
 import {
@@ -63,6 +66,7 @@ function Workspace({
   );
   const session = useBuzzSession({ client, config, pubkey, demo });
   const { state, selectedChannel } = session;
+  const liveAgentActivity = useLiveAgentActivity({ client, demo, ownerPubkey: pubkey });
   const userState = useRelayUserState({
     client,
     demo,
@@ -77,6 +81,7 @@ function Workspace({
   const [threadReplyTargetId, setThreadReplyTargetId] = useState<string | null>(null);
   const [focusedMessageId, setFocusedMessageId] = useState<string | null>(null);
   const [channelDetailsOpen, setChannelDetailsOpen] = useState(false);
+  const [activityPanelOpen, setActivityPanelOpen] = useState(false);
   const [memberDialogOpen, setMemberDialogOpen] = useState(false);
   const [channelBrowserInitialView, setChannelBrowserInitialView] = useState<"browse" | "create">(
     "browse",
@@ -92,6 +97,12 @@ function Workspace({
     panelWidth: navigationWidth,
     setPanelWidth: setNavigationWidth,
   } = useLeftPanelWidth();
+  const {
+    maximum: maximumActivityWidth,
+    minimum: minimumActivityWidth,
+    panelWidth: activityPanelWidth,
+    setPanelWidth: setActivityPanelWidth,
+  } = useRightPanelWidth("activity");
   const {
     maximum: maximumChannelDetailsWidth,
     minimum: minimumChannelDetailsWidth,
@@ -139,6 +150,30 @@ function Workspace({
     projects: relayHasProjects,
     forum: state.channels.some((channel) => channel.type === "forum"),
   });
+  const channelAgentPubkeys = useMemo(
+    () =>
+      selectedChannel?.members
+        .filter(
+          (member) =>
+            member.role === "bot" || state.profiles[member.pubkey.toLowerCase()]?.isAgent === true,
+        )
+        .map((member) => member.pubkey.toLowerCase()) ?? [],
+    [selectedChannel?.members, state.profiles],
+  );
+  const activityStatuses = selectedChannel
+    ? liveAgentActivity.statusesFor(selectedChannel.id, channelAgentPubkeys)
+    : [];
+  const activityItems = selectedChannel
+    ? liveAgentActivity.itemsFor(selectedChannel.id, channelAgentPubkeys)
+    : [];
+  const sendMessage = useCallback(
+    async (content: string, attachments: Parameters<typeof session.sendMessage>[1]) => {
+      if (!selectedChannel) return;
+      await session.sendMessage(content, attachments);
+      liveAgentActivity.markSubmitted(selectedChannel.id, channelAgentPubkeys);
+    },
+    [channelAgentPubkeys, liveAgentActivity, selectedChannel, session],
+  );
 
   useEffect(() => {
     if (!client || demo || config.features.projects || !connected) return;
@@ -201,6 +236,7 @@ function Workspace({
     setThreadRootId(null);
     setThreadReplyTargetId(null);
     setChannelDetailsOpen(false);
+    setActivityPanelOpen(false);
     setMemberDialogOpen(false);
     setFocusedMessageId(null);
     session.selectChannel(channelId);
@@ -210,6 +246,7 @@ function Workspace({
     setThreadRootId(null);
     setThreadReplyTargetId(null);
     setChannelDetailsOpen(false);
+    setActivityPanelOpen(false);
     setMemberDialogOpen(false);
     setMobileNavigationOpen(false);
     setFocusedMessageId(null);
@@ -217,6 +254,7 @@ function Workspace({
   const showMessages = () => {
     setActiveTool(null);
     setChannelDetailsOpen(false);
+    setActivityPanelOpen(false);
     setMobileNavigationOpen(false);
     setFocusedMessageId(null);
   };
@@ -224,6 +262,7 @@ function Workspace({
     setActiveTool(null);
     setMobileNavigationOpen(false);
     setChannelDetailsOpen(false);
+    setActivityPanelOpen(false);
     setMemberDialogOpen(false);
     setThreadRootId(threadId);
     setThreadReplyTargetId(null);
@@ -241,6 +280,7 @@ function Workspace({
       setThreadRootId(null);
       setThreadReplyTargetId(null);
       setChannelDetailsOpen(false);
+      setActivityPanelOpen(false);
       setMemberDialogOpen(false);
       setFocusedMessageId(null);
     } catch (openError) {
@@ -250,6 +290,7 @@ function Workspace({
   const openThread = (message: TimelineMessage, reply: boolean) => {
     setActiveTool(null);
     setChannelDetailsOpen(false);
+    setActivityPanelOpen(false);
     setThreadRootId(message.event.id);
     setThreadReplyTargetId(reply ? message.event.id : null);
     setFocusedMessageId(null);
@@ -258,7 +299,15 @@ function Workspace({
     setActiveTool(null);
     setThreadRootId(null);
     setThreadReplyTargetId(null);
+    setActivityPanelOpen(false);
     setChannelDetailsOpen((open) => !open);
+  };
+  const openActivityPanel = () => {
+    setActiveTool(null);
+    setThreadRootId(null);
+    setThreadReplyTargetId(null);
+    setChannelDetailsOpen(false);
+    setActivityPanelOpen(true);
   };
   const openChannelBrowser = useCallback((initialView: "browse" | "create" = "browse") => {
     setChannelBrowserInitialView(initialView);
@@ -296,6 +345,7 @@ function Workspace({
         setThreadRootId(null);
         setThreadReplyTargetId(null);
         setChannelDetailsOpen(false);
+        setActivityPanelOpen(false);
         setMemberDialogOpen(false);
         setMobileNavigationOpen(false);
         setFocusedMessageId(null);
@@ -309,6 +359,7 @@ function Workspace({
         setThreadRootId(null);
         setThreadReplyTargetId(null);
         setChannelDetailsOpen(false);
+        setActivityPanelOpen(false);
         setMemberDialogOpen(false);
         setMobileNavigationOpen(false);
         setFocusedMessageId(null);
@@ -361,6 +412,10 @@ function Workspace({
     : "Buzz";
   const searchChannel = state.channels.find((channel) => channel.id === searchChannelId) ?? null;
   const typingNames = state.typingPubkeys
+    .filter(
+      (typingPubkey) =>
+        !liveAgentActivity.available || !channelAgentPubkeys.includes(typingPubkey.toLowerCase()),
+    )
     .map((typingPubkey) => state.profiles[typingPubkey]?.name)
     .filter((name): name is string => Boolean(name));
 
@@ -477,6 +532,12 @@ function Workspace({
                   onReact={session.addReaction}
                   onReply={(message) => openThread(message, true)}
                 />
+                <AgentActivityIndicator
+                  itemCount={activityItems.length}
+                  profiles={state.profiles}
+                  statuses={activityStatuses}
+                  onOpen={openActivityPanel}
+                />
                 {typingNames.length ? (
                   <div className="h-6 shrink-0 px-5 text-[11px] text-muted-foreground">
                     {t("workspace.typing", { names: typingNames.slice(0, 3).join(", ") })}
@@ -494,7 +555,7 @@ function Workspace({
                   profiles={state.profiles}
                   relayUrl={config.relayUrl}
                   onMentionInserted={() => setInsertMention(null)}
-                  onSend={(content, attachments) => session.sendMessage(content, attachments)}
+                  onSend={sendMessage}
                   onTyping={() => session.notifyTyping()}
                 />
               </>
@@ -588,6 +649,17 @@ function Workspace({
               />
             ) : null}
           </WorkspaceToolPanel>
+        ) : selectedChannel && activityPanelOpen ? (
+          <AgentActivityPanel
+            items={activityItems}
+            maximumWidth={maximumActivityWidth}
+            minimumWidth={minimumActivityWidth}
+            panelWidth={activityPanelWidth}
+            profiles={state.profiles}
+            statuses={activityStatuses}
+            onClose={() => setActivityPanelOpen(false)}
+            onResize={setActivityPanelWidth}
+          />
         ) : threadRoot ? (
           <ThreadPanel
             key={`${threadRoot.event.id}:${threadReplyTargetId ?? "thread"}`}
