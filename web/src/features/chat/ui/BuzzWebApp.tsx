@@ -8,11 +8,13 @@ import { channelDisplayName, threadReference } from "@/features/chat/lib/chat-mo
 import type { BuzzChannel, TimelineMessage } from "@/features/chat/lib/chat-types";
 import { conversationDraftKey } from "@/features/chat/lib/conversation-drafts";
 import { useBuzzSession } from "@/features/chat/lib/use-buzz-session";
+import { useLiveAgentActivity } from "@/features/chat/lib/use-live-agent-activity";
 import { useRelayUserState } from "@/features/chat/lib/use-relay-user-state";
 import {
   isEditableShortcutTarget,
   resolveWorkspaceShortcut,
 } from "@/features/chat/lib/workspace-shortcuts";
+import { AgentActivityIndicator } from "@/features/chat/ui/AgentActivityIndicator";
 import { SearchDialog } from "@/features/chat/ui/AppDialogs";
 import { AppNavigation } from "@/features/chat/ui/AppNavigation";
 import {
@@ -63,6 +65,7 @@ function Workspace({
   );
   const session = useBuzzSession({ client, config, pubkey, demo });
   const { state, selectedChannel } = session;
+  const liveAgentActivity = useLiveAgentActivity({ client, demo, ownerPubkey: pubkey });
   const userState = useRelayUserState({
     client,
     demo,
@@ -139,6 +142,27 @@ function Workspace({
     projects: relayHasProjects,
     forum: state.channels.some((channel) => channel.type === "forum"),
   });
+  const channelAgentPubkeys = useMemo(
+    () =>
+      selectedChannel?.members
+        .filter(
+          (member) =>
+            member.role === "bot" || state.profiles[member.pubkey.toLowerCase()]?.isAgent === true,
+        )
+        .map((member) => member.pubkey.toLowerCase()) ?? [],
+    [selectedChannel?.members, state.profiles],
+  );
+  const activityStatuses = selectedChannel
+    ? liveAgentActivity.statusesFor(selectedChannel.id, channelAgentPubkeys)
+    : [];
+  const sendMessage = useCallback(
+    async (content: string, attachments: Parameters<typeof session.sendMessage>[1]) => {
+      if (!selectedChannel) return;
+      await session.sendMessage(content, attachments);
+      liveAgentActivity.markSubmitted(selectedChannel.id, channelAgentPubkeys);
+    },
+    [channelAgentPubkeys, liveAgentActivity, selectedChannel, session],
+  );
 
   useEffect(() => {
     if (!client || demo || config.features.projects || !connected) return;
@@ -477,6 +501,7 @@ function Workspace({
                   onReact={session.addReaction}
                   onReply={(message) => openThread(message, true)}
                 />
+                <AgentActivityIndicator profiles={state.profiles} statuses={activityStatuses} />
                 {typingNames.length ? (
                   <div className="h-6 shrink-0 px-5 text-[11px] text-muted-foreground">
                     {t("workspace.typing", { names: typingNames.slice(0, 3).join(", ") })}
@@ -494,7 +519,7 @@ function Workspace({
                   profiles={state.profiles}
                   relayUrl={config.relayUrl}
                   onMentionInserted={() => setInsertMention(null)}
-                  onSend={(content, attachments) => session.sendMessage(content, attachments)}
+                  onSend={sendMessage}
                   onTyping={() => session.notifyTyping()}
                 />
               </>
