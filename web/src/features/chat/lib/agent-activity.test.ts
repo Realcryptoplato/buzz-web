@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AgentActivityStore,
   classifyObserverFrame,
+  describeObserverFrame,
   parseObserverFrame,
   unwrapObserverBatch,
   validateObserverEvent,
@@ -166,5 +167,76 @@ describe("live agent activity protocol", () => {
         }),
       ),
     ).toBe("responding");
+  });
+
+  it("surfaces concrete shell commands and output for transparent execution tracing", () => {
+    const shellFrame = requiredFrame({
+      kind: "acp_read",
+      payload: {
+        method: "session/update",
+        params: {
+          update: {
+            sessionUpdate: "tool_call_update",
+            status: "completed",
+            title: "shell",
+            rawInput: { command: 'rg -n "observer" web/src' },
+            rawOutput: "web/src/example.ts:1:observer",
+          },
+        },
+      },
+    });
+
+    expect(describeObserverFrame(shellFrame)).toMatchObject({
+      state: "tool",
+      title: "shell",
+      detail: 'rg -n "observer" web/src',
+      output: "web/src/example.ts:1:observer",
+    });
+  });
+
+  it("routes unscoped frames only through a trusted turn or session channel correlation", () => {
+    const store = new AgentActivityStore();
+    store.ingest(AGENT, requiredFrame({ seq: 1, channelId: CHANNEL }), 1_000);
+    expect(
+      store.ingest(
+        AGENT,
+        requiredFrame({
+          seq: 2,
+          channelId: null,
+          payload: {
+            method: "session/update",
+            params: {
+              update: {
+                sessionUpdate: "tool_call",
+                title: "shell",
+                rawInput: { command: "npm test" },
+              },
+            },
+          },
+        }),
+        1_100,
+      ),
+    ).toBe(true);
+    expect(
+      store.ingest(
+        AGENT,
+        requiredFrame({
+          seq: 3,
+          channelId: null,
+          turnId: "unrelated-turn",
+          sessionId: "unrelated-session",
+        }),
+        1_200,
+      ),
+    ).toBe(false);
+
+    const channelItems = store.getItems(CHANNEL, [AGENT]);
+    expect(channelItems).toHaveLength(2);
+    expect(channelItems[1]?.presentation.detail).toBe("npm test");
+    expect(store.getStatuses(CHANNEL, [AGENT], "connected", true, 1_300)[0]?.summary).toBe(
+      "npm test",
+    );
+    expect(store.getItems("other-private-channel", [AGENT])).toEqual([]);
+    expect(store.getItems(CHANNEL, [OTHER_AGENT])).toEqual([]);
   });
 });

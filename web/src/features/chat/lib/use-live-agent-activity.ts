@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  type AgentActivityItem,
   type AgentActivityStatus,
   AgentActivityStore,
   parseObserverFrame,
@@ -14,6 +15,8 @@ import {
   getActiveSignerPubkey,
 } from "@/shared/lib/nostr-signer";
 
+const MAX_OBSERVER_PLAINTEXT_CHARS = 128_000;
+
 export function useLiveAgentActivity({
   client,
   demo,
@@ -27,6 +30,7 @@ export function useLiveAgentActivity({
   connection: RelayConnectionState;
   markSubmitted: (channelId: string, agentPubkeys: readonly string[]) => void;
   statusesFor: (channelId: string, agentPubkeys: readonly string[]) => AgentActivityStatus[];
+  itemsFor: (channelId: string, agentPubkeys: readonly string[]) => AgentActivityItem[];
 } {
   const storeIdentity = `${client?.relayUrl ?? "demo"}|${ownerPubkey.toLowerCase()}`;
   const storeRef = useRef<{ identity: string; store: AgentActivityStore } | null>(null);
@@ -57,9 +61,9 @@ export function useLiveAgentActivity({
           const agentPubkey = validateObserverEvent(event, ownerPubkey);
           if (!agentPubkey) return;
           try {
-            const parsed = parseObserverFrame(
-              JSON.parse(await decryptNip44FromPeer(agentPubkey, event.content)),
-            );
+            const plaintext = await decryptNip44FromPeer(agentPubkey, event.content);
+            if (plaintext.length > MAX_OBSERVER_PLAINTEXT_CHARS) return;
+            const parsed = parseObserverFrame(JSON.parse(plaintext));
             if (!parsed) return;
             for (const frame of unwrapObserverBatch(parsed)) {
               if (store.ingest(agentPubkey, frame)) setVersion((current) => current + 1);
@@ -104,8 +108,16 @@ export function useLiveAgentActivity({
     [available, connection, store, version],
   );
 
+  const itemsFor = useCallback(
+    (channelId: string, agentPubkeys: readonly string[]) => {
+      void version;
+      return store.getItems(channelId, agentPubkeys);
+    },
+    [store, version],
+  );
+
   return useMemo(
-    () => ({ available, connection, markSubmitted, statusesFor }),
-    [available, connection, markSubmitted, statusesFor],
+    () => ({ available, connection, itemsFor, markSubmitted, statusesFor }),
+    [available, connection, itemsFor, markSubmitted, statusesFor],
   );
 }
