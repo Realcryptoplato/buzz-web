@@ -203,6 +203,41 @@ describe("live agent activity protocol", () => {
     expect(store.getStatuses(CHANNEL, [AGENT], "connected", true, 1_100)[0]?.summary).toBeNull();
   });
 
+  it("keeps structured protocol objects out of the human activity presentation", () => {
+    const metadataFrame = requiredFrame({
+      kind: "acp_read",
+      payload: {
+        method: "session/update",
+        params: {
+          update: {
+            sessionUpdate: "available_commands_update",
+            commands: [{ name: "fixture-command", input: { nested: true } }],
+          },
+        },
+      },
+    });
+    expect(describeObserverFrame(metadataFrame).detail).toBeNull();
+
+    const structuredToolFrame = requiredFrame({
+      kind: "acp_read",
+      payload: {
+        method: "session/update",
+        params: {
+          update: {
+            sessionUpdate: "tool_call_update",
+            title: "search",
+            rawInput: { recursive: true, limit: 25, options: { nested: true } },
+            rawOutput: { matches: [{ path: "fixture-only" }] },
+          },
+        },
+      },
+    });
+    expect(describeObserverFrame(structuredToolFrame)).toMatchObject({
+      detail: "recursive: true · limit: 25",
+      output: null,
+    });
+  });
+
   it("routes unscoped frames only through a trusted turn or session channel correlation", () => {
     const store = new AgentActivityStore();
     store.ingest(AGENT, requiredFrame({ seq: 1, channelId: CHANNEL }), 1_000);

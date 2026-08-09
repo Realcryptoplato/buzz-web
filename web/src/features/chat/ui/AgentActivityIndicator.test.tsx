@@ -84,4 +84,35 @@ describe("agent activity UI", () => {
     expect(html).toContain("JSON");
     expect(html).not.toContain("Show JSON");
   });
+
+  it("suppresses raw protocol-only frames from Activity mode", () => {
+    const store = new AgentActivityStore();
+    const frame = parseObserverFrame({
+      seq: 9,
+      timestamp: "2026-08-09T12:00:00.000Z",
+      kind: "raw_json_rpc",
+      channelId: CHANNEL,
+      sessionId: "session-fixture",
+      turnId: "turn-fixture",
+      payload: { fixtureSecret: "visible-only-in-json-mode" },
+    });
+    if (!frame) throw new Error("fixture frame must be valid");
+    store.ingest(AGENT, frame, 1_000);
+
+    const html = renderToStaticMarkup(
+      <AgentActivityPanel
+        items={store.getItems(CHANNEL, [AGENT])}
+        maximumWidth={720}
+        minimumWidth={320}
+        panelWidth={420}
+        profiles={profiles}
+        statuses={[]}
+        onClose={() => undefined}
+        onResize={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("No summarized activity yet");
+    expect(html).not.toContain("visible-only-in-json-mode");
+  });
 });

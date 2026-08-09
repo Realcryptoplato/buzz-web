@@ -163,6 +163,7 @@ function toolArgs(update: Record<string, unknown>): Record<string, unknown> {
 
 function contentText(value: unknown): string | null {
   if (typeof value === "string") return value.trim() || null;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) {
     const joined = value
       .map(contentText)
@@ -171,23 +172,52 @@ function contentText(value: unknown): string | null {
     return joined || null;
   }
   if (!isRecord(value)) return null;
-  return firstString([value.text, value.content, value.message]);
+  for (const key of ["text", "message", "content", "stdout", "stderr", "output", "result"]) {
+    const nested = contentText(value[key]);
+    if (nested) return nested;
+  }
+  return null;
 }
 
-function boundedText(value: unknown, maximum: number): string | null {
-  let text: string | null = null;
-  if (typeof value === "string") text = value.trim() || null;
-  else if (value !== undefined && value !== null) {
-    if (Array.isArray(value) && value.length === 0) return null;
-    if (isRecord(value) && Object.keys(value).length === 0) return null;
-    try {
-      text = JSON.stringify(value);
-    } catch {
-      text = null;
-    }
-  }
-  if (!text || text === "{}" || text === "[]") return null;
+function boundedLiteral(value: unknown, maximum: number): string | null {
+  const text = typeof value === "string" ? value.trim() || null : contentText(value);
+  if (!text) return null;
   return text.length > maximum ? `${text.slice(0, maximum)}…` : text;
+}
+
+function looksLikeStructuredJson(value: string): boolean {
+  const text = value.trim();
+  if (
+    !(text.startsWith("{") && text.endsWith("}")) &&
+    !(text.startsWith("[") && text.endsWith("]"))
+  ) {
+    return false;
+  }
+  try {
+    const parsed = JSON.parse(text);
+    return parsed !== null && typeof parsed === "object";
+  } catch {
+    return false;
+  }
+}
+
+function boundedHumanText(value: unknown, maximum: number): string | null {
+  const text = boundedLiteral(value, maximum);
+  return text && !looksLikeStructuredJson(text) ? text : null;
+}
+
+function summarizeToolArgs(args: Record<string, unknown>): string | null {
+  const parts = Object.entries(args)
+    .map(([key, value]) => {
+      if (typeof value === "number" || typeof value === "boolean")
+        return `${key}: ${String(value)}`;
+      if (typeof value !== "string" || looksLikeStructuredJson(value)) return null;
+      const text = boundedLiteral(value, 240);
+      return text ? `${key}: ${text}` : null;
+    })
+    .filter((value): value is string => Boolean(value))
+    .slice(0, 3);
+  return parts.length ? parts.join(" · ") : null;
 }
 
 function compactSummary(presentation: ObserverFramePresentation): string | null {
@@ -238,27 +268,30 @@ export function describeObserverFrame(frame: ObserverFrame): ObserverFramePresen
         nestedTool?.name,
       ]) ?? "tool_call";
     const detail =
-      firstString([
-        args.command,
-        args.cmd,
-        args.path,
-        args.filePath,
-        args.source,
-        args.query,
-        args.url,
-      ]) ?? boundedText(args, MAX_DETAIL_CHARS);
+      boundedLiteral(
+        firstString([
+          args.command,
+          args.cmd,
+          args.path,
+          args.filePath,
+          args.source,
+          args.query,
+          args.url,
+        ]),
+        MAX_DETAIL_CHARS,
+      ) ?? summarizeToolArgs(args);
     const output =
-      boundedText(update.rawOutput, MAX_OUTPUT_CHARS) ??
-      boundedText(contentText(update.content), MAX_OUTPUT_CHARS);
+      boundedHumanText(update.rawOutput, MAX_OUTPUT_CHARS) ??
+      boundedHumanText(update.content, MAX_OUTPUT_CHARS);
     return { state, title, detail, output };
   }
 
   const method = payloadString(payload, "method");
   const detail = update
-    ? boundedText(contentText(update.content) ?? update, MAX_DETAIL_CHARS)
+    ? boundedHumanText(update.content ?? update.message ?? update.text, MAX_DETAIL_CHARS)
     : method
-      ? boundedText(isRecord(payload) ? payload.params : null, MAX_DETAIL_CHARS)
-      : boundedText(frame.payload, MAX_DETAIL_CHARS);
+      ? boundedHumanText(isRecord(payload) ? payload.params : null, MAX_DETAIL_CHARS)
+      : boundedHumanText(frame.payload, MAX_DETAIL_CHARS);
   return {
     state,
     title: updateType ?? method ?? frame.kind,

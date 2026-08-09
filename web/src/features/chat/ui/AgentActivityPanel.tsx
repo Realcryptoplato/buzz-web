@@ -51,6 +51,15 @@ export function AgentActivityPanel({
 }) {
   const [viewMode, setViewMode] = useState<"activity" | "json">("activity");
   const newestFirst = [...items].reverse();
+  const visibleItems =
+    viewMode === "json"
+      ? newestFirst
+      : newestFirst.filter(
+          (item) =>
+            !["raw_json_rpc", "session_config_captured", "turn_liveness"].includes(
+              item.frame.kind.toLowerCase(),
+            ),
+        );
 
   return (
     <aside
@@ -111,9 +120,9 @@ export function AgentActivityPanel({
       </header>
 
       <div className="buzz-scrollbar min-h-0 flex-1 overflow-y-auto p-3">
-        {items.length ? (
+        {visibleItems.length ? (
           <ol className="space-y-2">
-            {newestFirst.map((item) => {
+            {visibleItems.map((item) => {
               const profile = profiles[item.agentPubkey];
               return (
                 <li className="rounded-md border bg-foreground/[0.025] p-2.5" key={item.id}>
@@ -164,7 +173,9 @@ export function AgentActivityPanel({
           </ol>
         ) : (
           <div className="flex h-full min-h-40 items-center justify-center px-4 text-center text-xs text-muted-foreground">
-            {t("activity.empty")}
+            {viewMode === "activity" && items.length
+              ? t("activity.compactEmpty")
+              : t("activity.empty")}
           </div>
         )}
       </div>

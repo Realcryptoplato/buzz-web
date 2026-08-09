@@ -55,6 +55,10 @@ const messages = {
     en: "No channel-scoped agent activity has arrived yet.",
     "zh-CN": "尚未收到当前频道范围内的 Agent 活动。",
   },
+  "activity.compactEmpty": {
+    en: "No summarized activity yet. Raw protocol frames remain available in JSON.",
+    "zh-CN": "尚无可摘要的活动。原始协议帧仍可在 JSON 中查看。",
+  },
   "activity.inMemory": {
     en: "Live activity is kept in memory for this session only.",
     "zh-CN": "实时活动仅在本次会话的内存中保留。",
