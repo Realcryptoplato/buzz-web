@@ -24,6 +24,18 @@ Buzz Web 是一个连接 [Buzz](https://github.com/block/buzz) Relay 的独立�
 尚不可用的操作会直接隐藏，不展示无效占位按钮。后续计划及验收标准见
 [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md)。
 
+## 项目方向
+
+面向托管部署和多设备使用的提案文档包括：
+
+- [产品需求](docs/product-requirements.md)
+- [架构演进](docs/architecture-evolution.md)
+- [项目计划与 Buzz 团队交接](docs/project-plan.md)
+- [维护策略](docs/maintenance.md)
+
+这些文档将可复用的客户端能力与私有部署配置分开，并记录协议、身份和 Tablet 开发开始前
+必须重新检查的上游工作。
+
 ## 架构
 
 ```text

@@ -25,6 +25,18 @@ agents, presence, and NIP-34 repository browsing.
 Unavailable actions are intentionally hidden. See [ROADMAP.md](ROADMAP.md) for planned work and
 acceptance criteria.
 
+## Project Direction
+
+The proposed hosted, multi-device evolution is documented in:
+
+- [Product requirements](docs/product-requirements.md)
+- [Architecture evolution](docs/architecture-evolution.md)
+- [Project plan and Buzz team handoff](docs/project-plan.md)
+- [Maintenance policy](docs/maintenance.md)
+
+These documents separate reusable client work from private deployment configuration and record the
+upstream work that must be reviewed before protocol, identity, or tablet implementation begins.
+
 ## Architecture
 
 ```text

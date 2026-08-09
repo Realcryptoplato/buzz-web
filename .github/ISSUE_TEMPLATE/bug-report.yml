@@ -1,0 +1,59 @@
+name: Bug report
+description: Report a reproducible Buzz Web defect without private Relay data.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Do not include private keys, authorization headers, private messages, or private hostnames.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: User impact
+      description: What useful action is blocked or incorrect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide minimal steps using synthetic or redacted data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v0.1.0 or full commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - Phone browser
+        - Tablet browser
+        - Desktop browser
+        - Production deployment
+        - Agent Control
+        - Protocol interoperability
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Secret-free evidence
+      description: Include bounded errors, screenshots, or event metadata after removing sensitive data.
+  - type: textarea
+    id: upstream
+    attributes:
+      label: Related upstream work
+      description: Link matching hardy4yooz/buzz-web or block/buzz issues and PRs, or state that none was found.

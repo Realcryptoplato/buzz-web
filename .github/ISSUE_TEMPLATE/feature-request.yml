@@ -1,0 +1,48 @@
+name: Feature request
+description: Propose a user outcome with protocol, security, and acceptance boundaries.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the user problem without prescribing an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should the user be able to accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Ownership and protocol boundary
+      description: What belongs to Web, Relay, signer, Agent Control, or deployment?
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security and privacy impact
+      description: Address identity, authorization, secrets, private content, and recovery.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable checks against a real Relay where applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: upstream
+    attributes:
+      label: Related upstream work
+      description: Link matching hardy4yooz/buzz-web or block/buzz issues and PRs, or state that none was found.
+    validations:
+      required: true
